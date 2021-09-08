@@ -1,0 +1,85 @@
+cabal-version:      3.0
+name:               constraint-rules
+version:            0.1
+synopsis:           Extend the type checker with user-defined rules
+-- description:
+homepage:           https://github.com/YellPika/constraint-rules
+bug-reports:        https://github.com/YellPika/constraint-rules/issues
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Anthony Vandikas
+maintainer:         yellpika@gmail.com
+copyright:          © 2021 Anthony Vandikas
+category:           GHC, Type System
+extra-source-files: CHANGELOG.md
+
+library
+  exposed-modules:  Data.Constraint.Rule,
+                    Data.Constraint.Rule.Bool,
+                    Data.Constraint.Rule.Nat,
+                    Data.Constraint.Rule.Plugin,
+                    Data.Constraint.Rule.Plugin.Runtime,
+                    Data.Constraint.Rule.Symbol,
+                    Data.Constraint.Rule.TH
+  other-modules:    Data.Constraint.Rule.Plugin.Cache,
+                    Data.Constraint.Rule.Plugin.Definitions,
+                    Data.Constraint.Rule.Plugin.Equiv,
+                    Data.Constraint.Rule.Plugin.Prelude,
+                    Data.Constraint.Rule.Plugin.Rule
+  -- other-extensions:
+  build-depends:    base               >=4.14 && <4.17,
+                    closed-classes     >=0.1  && <0.2,
+                    constraints        >=0.13 && <0.15,
+                    ghc                >=8.10 && <9.3,
+                    ghc-definitions-th >=0.1  && <0.2,
+                    template-haskell   >=2.16 && <2.19,
+                    transformers       >=0.5  && <0.6,
+  hs-source-dirs:   src
+  default-language: Haskell2010
+  ghc-options:      -Wall
+
+  if impl(ghc >= 9.0) && impl(ghc < 9.2)
+    mixins:
+      ghc ( GHC.Core.Type as GHC.Types.TyThing ),
+      ghc
+
+  if impl(ghc < 9.0)
+    mixins:
+      ghc ( Class      as GHC.Core.Class
+          , Constraint as GHC.Tc.Types.Constraint
+          , CoreSyn    as GHC.Core
+          , GhcPlugins as GHC.Plugins
+          , LoadIface  as GHC.Iface.Load
+          , Maybes     as GHC.Data.Maybe
+          , OccName    as GHC.Types.Name.Occurence
+          , Pair       as GHC.Data.Pair
+          , Predicate  as GHC.Core.Predicate
+          , RnEnv      as GHC.Rename.Env
+          , TcEnv      as GHC.Tc.Utils.Env
+          , TcEvidence as GHC.Tc.Types.Evidence
+          , TcOrigin   as GHC.Tc.Types.Origin
+          , TcPluginM  as GHC.Tc.Plugin
+          , TcRnMonad  as GHC.Tc.Utils.Monad
+          , TcRnTypes  as GHC.Tc.Types
+          , TcType     as GHC.Tc.Utils.TcType
+          , TyCon      as GHC.Core.TyCon
+          , Type       as GHC.Core.Type
+          , Type       as GHC.Types.TyThing
+          , TysPrim    as GHC.Builtin.Types.Prim
+          , TysWiredIn as GHC.Builtin.Types
+          )
+
+test-suite test
+  type:               exitcode-stdio-1.0
+  main-is:            Main.hs
+  other-modules:      Test.SimplDefs,
+                      Test.SimplSpec,
+                      Test.Util
+  build-depends:      base        >=4.14 && <4.17,
+                      constraints >=0.13 && <0.15,
+                      hspec       >=2.8  && <2.9,
+                      constraint-rules
+  build-tool-depends: hspec-discover:hspec-discover >=2.8 && <2.9
+  hs-source-dirs:     test
+  default-language:   Haskell2010
+  ghc-options:        -Wall
