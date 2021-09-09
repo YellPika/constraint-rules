@@ -2,7 +2,7 @@
 
 This package facilitates the implementation of custom type checking rules for GHC, _without_ the need to implement a type checker plugin every time. To use the plugin, add the following line to the top of the file for which you would like to use the extension:
 
-```
+```haskell
 {-# OPTIONS_GHC -fplugin=Data.Constraint.Rule.Plugin #-}
 ```
 
@@ -10,7 +10,7 @@ Three types of rules are supported:
 
 * _Introduction_ rules replace wanted constraints with other wanted constraints. They are declared as
 
-  ```
+  ```haskell
   myIntroRule ∷ (C₁, ..., Cₙ) ⇒ Dict C
   myIntroRule = ...
   ```
@@ -19,7 +19,7 @@ Three types of rules are supported:
 
 * _Derivation_ rules add additional constraints to the set of given constraints. They are declared as
 
-  ```
+  ```haskell
   myDerivRule ∷ (C₁, ..., Cₙ) ⇒ Dict C
   myDerivRule = ...
   ```
@@ -28,7 +28,7 @@ Three types of rules are supported:
 
 * _Simplification_ rules add new equalities to the set of given constraints. They are declared as
 
-  ```
+  ```haskell
   mySimplRule ∷ (C₁, ..., Cₙ) ⇒ Dict (P ~ Q)
   mySimplRule = ...
   ```
@@ -40,7 +40,7 @@ Three types of rules are supported:
 
 Suppose we have the introduction rule `plusNat`, and we'd like to use it to type check `example`:
 
-```
+```haskell
 import Data.Constraint (Dict (..))
 import GHC.TypeNats (KnownNat, type (+))
 
@@ -53,7 +53,7 @@ example = Dict -- Error: unsatisfied `KnownNat (5 + n)` constraint.
 
 By default, the plugin does not apply a rule unless explicitly told to. We can instruct the plugin solve the unsatisfied `KnownNat (5 + n)` constraint using `plusNat` by adding an `Intro` constraint to the context:
 
-```
+```haskell
 import Data.Constraint.Rule (Intro)
 import Data.Constraint.Rule.TH (spec)
 
@@ -63,7 +63,7 @@ example = Dict -- Works!
 
 `Intro` constraints have trivial instances, so any code calling `example` need not worry about providing an instance. Another way to do this without changing the type signature of `example` is to use the `withIntro` function, which has the signature `withIntro ∷ Proxy a → (Intro a ⇒ r) → r`:
 
-```
+```haskell
 import Data.Constraint.Rule (withIntro)
 import Data.Constraint.Rule.TH (spec)
 
@@ -73,7 +73,7 @@ example = withIntro $(spec 'plusNat) Dict -- Works!
 
 Lastly, we can instruct the plugin to use `plusNat` _by default_ by adding an annotation to `plusNat`:
 
-```
+```haskell
 import Data.Constraint.Rule (RuleUsage (..))
 
 {-# ANN plusNat Intro #-}
@@ -83,7 +83,7 @@ plusNat = ...
 
 Note that rules annotated in this manner are only applied automatically when they are imported:
 
-```
+```haskell
 import MyRules (plusNat)
 
 example ∷ KnownNat n ⇒ Dict (KnownNat (5 + n))
@@ -92,7 +92,7 @@ example = Dict -- Works!
 
 This restriction exists to prevent rule implementors from accidentally creating an infinite loop. If the restriction didn't exist, the following code would pass the type checker but cause an infinite loop at runtime:
 
-```
+```haskell
 {-# ANN plusNat Intro #-}
 plusNat ∷ (KnownNat m, KnownNat n) ⇒ Dict (KnownNat (m + n))
 plusNat = Dict
@@ -100,7 +100,7 @@ plusNat = Dict
 
 If you would like to prevent a rule from being applied by default, you must introduce a `NoIntro` constraint into the context of the expression being type checked:
 
-```
+```haskell
 import MyRules (plusNat)
 import Data.Constraint.Rule (Ignore)
 
@@ -110,7 +110,7 @@ example = Dict -- Unsatisfied `KnownNat (5 + n)` constraint.
 
 This can also be achieved using the `ignoreIntro` function:
 
-```
+```haskell
 import MyRules (plusNat)
 import Data.Constraint.Rule (ignoreIntro)
 
@@ -124,7 +124,7 @@ example = ignoreIntro $(ref 'plusNat) Dict -- Unsatisfied `KnownNat (5 + n)` con
 
 **Automatically Solving Type Equalities.** Simplification rules can be used to automatically solve type equality constraints. For example, one can define a rule for the commutativity of addition:
 
-```
+```haskell
 {-# ANN plusCommutes Simpl #-}
 plusCommutes ∷ Dict ((x + y) ~ (y + x))
 plusCommutes = ...
@@ -138,7 +138,7 @@ Note that a full set of rules for associativity and commutativity might cause a 
 
 **What happens if I give a 'bad' rule implementation?** If your rule implementation evaluates to `⊥`, then this will manifest _at runtime_ whenever a constraint produced by your rule is used.
 
-```
+```haskell
 badEq ∷ Dict (Eq a)
 badEq = error "badEq"
 
@@ -155,7 +155,7 @@ We can easily break coherence if we use `unsafe*` functions to implement a rule 
 
 If we ignore `unsafe*` functions, it is possible to implement a rule that evaluates to `⊥`:
 
-```
+```haskell
 {-# ANN badEq Intro #-}
 badEq ∷ Dict (Eq a)
 badEq = error "badEq"
