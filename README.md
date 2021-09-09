@@ -112,7 +112,7 @@ This can also be achieved using the `ignoreIntro` function:
 
 ```
 import MyRules (plusNat)
-import Data.Constraint.Rule (Ignore)
+import Data.Constraint.Rule (ignoreIntro)
 
 example ∷ KnownNat n ⇒ Dict (KnownNat (5 + n))
 example = ignoreIntro $(ref 'plusNat) Dict -- Unsatisfied `KnownNat (5 + n)` constraint.
