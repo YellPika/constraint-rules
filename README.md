@@ -1,6 +1,6 @@
 # constraint-rules
 
-This package facilitates the implementation of custom type checking rules for GHC, _without_ the need to implement a type checker plugin every time. To use the plugin, add the following line to the top of the file for which you would like to use the extension:
+This package provides a GHC plugin to facilitate the implementation of custom type checking rules, _without_ the need to implement a new type checker plugin every time. To use this plugin, add the following line to the top of the file for which you would like to use the extension:
 
 ```haskell
 {-# OPTIONS_GHC -fplugin=Data.Constraint.Rule.Plugin #-}
@@ -24,7 +24,7 @@ Three types of rules are supported:
   myDerivRule = ...
   ```
 
-  Any type variables appearing in `C` must also appear in at least one of `C₁, ..., Cₙ`. Whenever the set of constraints `C₁, ..., Cₙ` appear as given constraints, the constraint `C` is added to set of given constraints.
+  Any type variables appearing in `C` must also appear in at least one of `C₁, ..., Cₙ`. Whenever the constraints `C₁, ..., Cₙ` appear as given constraints, the constraint `C` is added to set of given constraints.
 
 * _Simplification_ rules add new equalities to the set of given constraints. They are declared as
 
@@ -33,8 +33,7 @@ Three types of rules are supported:
   mySimplRule = ...
   ```
 
-  Whenever the set of constraints `C₁, ..., Cₙ` appear as given
-  constraints, and the pattern `P` appears in a given _or_ wanted constraint, the constraint `P ~ Q` is added to the set of given constraints.
+  Whenever the constraints `C₁, ..., Cₙ` appear as given constraints and the pattern `P` appears in a given _or_ wanted constraint, the constraint `P ~ Q` is added to the set of given constraints.
 
 ## Usage
 
