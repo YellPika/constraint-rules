@@ -129,7 +129,7 @@ plusCommutes ∷ Dict ((x + y) ~ (y + x))
 plusCommutes = ...
 ```
 
-Unlike the [typelevel-rewrite-rules](https://hackage.haskell.org/package/typelevel-rewrite-rules) package, simplification rules do not modify any existing constraints and merely add additional equality constraints to the context. Thus, this rule will not cause the type checker to loop.
+Unlike the [typelevel-rewrite-rules](https://hackage.haskell.org/package/typelevel-rewrite-rules) package, simplification rules do not modify any existing constraints and merely add additional equality constraints to the context. For example, if we want to solve the constraint `x + 5 ~ y`, the plugin will generate the constraints `x + 5 ~ 5 + x` and `5 + x ~ x + 5` and then stop (instead of endlessly rewriting `x + 5 → 5 + x → x + 5 → ...`). Thus this plugin terminates in many cases where `typelevel-rewrite-rules` won't.
 
 Note that a full set of rules for associativity and commutativity might cause a blowup in the number of given constraints, so this approach should only be used for small problems. For a more robust solution, see the [ghc-typelits-natnormalise](https://hackage.haskell.org/package/ghc-typelits-natnormalise) package.
 
@@ -167,3 +167,13 @@ However, this (should be) the _only_ way in which incoherence arises. If your ru
 Do note that this plugin runs _after_ the type-checker has already tried its hardest to solve your constraints, so existing type class instances take priority over introduction rules.
 
 Additionally, only one rule is applied at a time. Every time a rule is applied, control is given back to the type checker, which then tries to make progress with the new constraints. If the type checker gets stuck again, the plugin is invoked once more and this process repeats until the constraint is solved or no more rules can be applied.
+
+**Is termination guaranteed?** Not at all! If you have a rule that continuously generates larger and larger constraints, e.g.
+
+```
+{-# ANN plusZero Intro #-}
+plusZero ∷ KnownNat (n + 1) ⇒ Dict (KnownNat n)
+plusZero = ...
+```
+
+then type checking can absolutely loop forever. However, non-termination is not guaranteed either in these cases since GHC takes over in between every rule application and might shrink or solve all the generated constraints.
