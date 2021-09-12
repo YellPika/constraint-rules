@@ -176,4 +176,4 @@ plusZero ∷ KnownNat (n + 1) ⇒ Dict (KnownNat n)
 plusZero = ...
 ```
 
-then type checking can absolutely loop forever. However, non-termination is not guaranteed either in these cases since GHC takes over in between every rule application and might shrink or solve all the generated constraints.
+then type checking can absolutely loop forever. However, non-termination is not guaranteed either in these cases since GHC takes over in between every rule application and might shrink or solve all the remaining constraints.
