@@ -50,7 +50,5 @@ reportMessages = do
         | otherwise = (spn', doc') : insert msg msgs
 
   (errs, warns) ← tcPluginIO (readIORef ?messages)
-  tcPluginTrace "[constraint-rules] Errors" (ppr (map (text . show . fst) errs))
-  tcPluginTrace "[constraint-rules] Errors" (ppr (map (\(spn, doc) → text (show (mkLongErrMsg flags spn unqual doc empty))) errs))
   mapM_ (uncurry addErrAt) (undup errs)
   mapM_ (uncurry (addWarnAt NoReason)) (undup warns)
