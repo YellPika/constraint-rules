@@ -2,6 +2,7 @@
 {-# OPTIONS_GHC -Wno-deferred-type-errors            #-}
 {-# OPTIONS_GHC -fplugin=Data.Constraint.Rule.Plugin #-}
 {-# OPTIONS_GHC -dcore-lint                          #-}
+-- {-# OPTIONS_GHC -ddump-tc-trace -ddump-to-file       #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DataKinds           #-}

@@ -24,6 +24,7 @@ library
   other-modules:    Data.Constraint.Rule.Plugin.Cache,
                     Data.Constraint.Rule.Plugin.Definitions,
                     Data.Constraint.Rule.Plugin.Equiv,
+                    Data.Constraint.Rule.Plugin.Message,
                     Data.Constraint.Rule.Plugin.Prelude,
                     Data.Constraint.Rule.Plugin.Rule
   -- other-extensions:
@@ -48,6 +49,7 @@ library
       ghc ( Class      as GHC.Core.Class
           , Constraint as GHC.Tc.Types.Constraint
           , CoreSyn    as GHC.Core
+          , ErrUtils   as GHC.Utils.Error
           , GhcPlugins as GHC.Plugins
           , LoadIface  as GHC.Iface.Load
           , Maybes     as GHC.Data.Maybe

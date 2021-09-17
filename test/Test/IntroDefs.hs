@@ -2,10 +2,12 @@
 {-# OPTIONS_GHC -Wno-deferred-type-errors            #-}
 {-# OPTIONS_GHC -fplugin=Data.Constraint.Rule.Plugin #-}
 {-# OPTIONS_GHC -dcore-lint                          #-}
+-- {-# OPTIONS_GHC -ddump-tc-trace -ddump-to-file       #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE NoStarIsType        #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE NoStarIsType #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
@@ -15,10 +17,10 @@ module Test.IntroDefs where
 
 import Data.Constraint         (Dict (..), HasDict (..))
 import Data.Constraint.Nat     (plusNat, timesNat)
-import Data.Constraint.Rule    (withIntro)
+import Data.Constraint.Rule    -- (withIntro)
 import Data.Constraint.Rule.TH (spec)
 import Data.Proxy              (Proxy (Proxy))
-import GHC.TypeNats            (KnownNat, natVal, type (+), type (*))
+import GHC.TypeNats            (KnownNat, natVal, type (*), type (+))
 import Numeric.Natural         (Natural)
 import Test.Util               (badProof)
 

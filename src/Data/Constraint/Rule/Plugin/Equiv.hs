@@ -11,7 +11,7 @@ module Data.Constraint.Rule.Plugin.Equiv (
   match, matchAny
 ) where
 
-import Data.Constraint.Rule.Plugin.Prelude
+import Data.Constraint.Rule.Plugin.Prelude hiding (empty)
 
 import Control.Applicative       (Alternative (..))
 import Control.Monad             (guard, zipWithM)

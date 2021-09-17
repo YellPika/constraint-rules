@@ -11,6 +11,7 @@ module Data.Constraint.Rule.Plugin where
 import Data.Constraint.Rule.Plugin.Cache
 import Data.Constraint.Rule.Plugin.Definitions
 import Data.Constraint.Rule.Plugin.Equiv
+import Data.Constraint.Rule.Plugin.Message
 import Data.Constraint.Rule.Plugin.Prelude
 import Data.Constraint.Rule.Plugin.Rule
 
@@ -22,19 +23,22 @@ import Data.Maybe                (fromJust, isJust, maybeToList)
 plugin ∷ Plugin
 plugin = defaultPlugin
   { tcPlugin = \_ → Just TcPlugin
-    { tcPluginInit  = (,) <$> findDefinitions <*> newCache
+    { tcPluginInit  = (,,) <$> findDefinitions <*> newCache <*> newMessages
     , tcPluginSolve = solve
-    , tcPluginStop  = const (return ())
+    , tcPluginStop  = \(_, _, Dict) → reportMessages
     }
   , pluginRecompile = purePlugin
   }
 
-solve ∷ (Dict Definitions, Dict Cache) → [Ct] → [Ct] → [Ct] → TcPluginM TcPluginResult
-solve (Dict, Dict) givens deriveds wanteds = do
+solve ∷ (Dict Definitions, Dict Cache, Dict Messages) → [Ct] → [Ct] → [Ct] → TcPluginM TcPluginResult
+solve (Dict, Dict, Dict) givens deriveds wanteds = do
   tcPluginTrace "[constraint-rules] Constraints" $
     hang (text "Givens:")   4 (ppr givens) $$
     hang (text "Deriveds:") 4 (ppr deriveds) $$
     hang (text "Wanteds:")  4 (ppr wanteds)
+
+  loc ← getCtLocM (Shouldn'tHappenOrigin "constraint-rules") Nothing
+  tcPluginTrace "[constraint-rules] Location" (pprCtLoc loc)
 
   Dict ← return (findEqualities givens)
   let pprCo x = ppr x <+> text "∷" <+> ppr (coercionKind x)
