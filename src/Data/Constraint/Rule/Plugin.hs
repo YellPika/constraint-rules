@@ -66,10 +66,9 @@ applyRule ∷ (Definitions, Cached, Equalities) ⇒ [Ct] → [Ct] → Rule → [
 applyRule _ wanteds rule@Rule { ruleGoal = IntroGoal template, .. } = do
   ct       ← wanteds
   (coe, σ) ← runStateT (match template (equivClass (ctPred ct))) ruleArgs
-  σ'       ← complete σ ruleVars
   return do
     tcPluginTrace "[constraint-rules] Applying" (ppr rule)
-    σ'' ← instantiate σ' ruleVars
+    σ'' ← instantiate σ ruleVars
     evs ← mapM (newWanted (bumpCtLocDepth (ctLoc ct)) . substTyAddInScope σ'') ruleCts
     tcPluginTrace "[constraint-rules] New Wanteds" (ppr evs)
 
@@ -83,9 +82,8 @@ applyRule _ wanteds rule@Rule { ruleGoal = IntroGoal template, .. } = do
 applyRule givens wanteds rule@Rule { ruleGoal = DerivGoal _, .. } = do
   guard (null wanteds)
   (evs, σ) ← runStateT (matchAny ruleCts (map (\ct → (equivClass (ctPred ct), ctEvidence ct)) givens)) ruleArgs
-  σ' ← complete σ ruleVars
   let ruleExpr = Var ruleDef
-        `mkTyApps` map (fromJust . lookupTyVar σ') ruleVars
+        `mkTyApps` map (fromJust . lookupTyVar σ) ruleVars
         `mkApps`   map (\(ev, coe) → mkCast (ctEvExpr ev) (mkSubCo coe)) evs
       DictTy [goal] = exprType ruleExpr
       openExpr = OpenDictExpr [Type goal, Type goal, ruleExpr]
@@ -101,9 +99,8 @@ applyRule givens wanteds rule@Rule { ruleGoal = SimplGoal lhs _, .. } = do
   child     ← children (ctPred ct)
   σ         ← execStateT (match lhs (equivClass child)) ruleArgs
   (evs, σ') ← runStateT (matchAny ruleCts (map (\c → (equivClass (ctPred c), ctEvidence c)) givens)) σ
-  σ''       ← complete σ' ruleVars
   let ruleExpr = Var ruleDef
-        `mkTyApps` map (fromJust . lookupTyVar σ'') ruleVars
+        `mkTyApps` map (fromJust . lookupTyVar σ') ruleVars
         `mkApps`   map (\(ev, coe) → mkCast (ctEvExpr ev) (mkSubCo coe)) evs
       DictTy [goal] = exprType ruleExpr
       openExpr = OpenDictExpr [Type goal, Type goal, ruleExpr]
@@ -112,21 +109,6 @@ applyRule givens wanteds rule@Rule { ruleGoal = SimplGoal lhs _, .. } = do
     tcPluginTrace "[constraint-rules] Applying" (ppr rule)
     cachedExpr ← cached goal
     emitGivens ruleLoc [openExpr, cachedExpr] wanteds
-
-complete ∷ Equalities ⇒ TCvSubst → [Var] → [TCvSubst]
-complete σ xs = do
-  case find (lookupTyVar σ) xs of
-    Just (x, t, xs') → do
-      σ' ← execStateT (match (varType x) (equivClass (typeKind t))) σ
-      complete σ' xs'
-    Nothing → return σ
-  where
-    find ∷ (a → Maybe b) → [a] → Maybe (a, b, [a])
-    find _ [] = Nothing
-    find p (x:zs) =
-      case p x of
-        Just y  → Just (x, y, zs)
-        Nothing → find p zs
 
 instantiate ∷ TCvSubst → [Var] → TcPluginM TCvSubst
 instantiate σ [] = return σ

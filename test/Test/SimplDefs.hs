@@ -7,6 +7,7 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -19,6 +20,7 @@ module Test.SimplDefs where
 import           Data.Constraint         (Dict (..), withDict)
 import           Data.Constraint.Rule    (withSimpl)
 import qualified Data.Constraint.Rule.TH as TH
+import           Data.Type.Bool          (If)
 import           Test.Util               (badProof, testEq, trustMe)
 
 type family Foo a
@@ -35,6 +37,9 @@ proof₂ = trustMe
 
 proof₃ ∷ Dict (Bar a ~ a)
 proof₃ = trustMe
+
+proof₄ ∷ Dict (If a (f b) (f c) ~ f (If a b c))
+proof₄ = trustMe
 
 wanted₁ ∷ Maybe Int
 wanted₁ = Nothing @(Foo Int)
@@ -84,3 +89,6 @@ multiple₂ =
   withSimpl $(TH.spec 'proof₂) $
   withSimpl $(TH.spec 'proof₃) $
     testEq @(Bar Int) (Dict @(Eq (Foo Int))) 0
+
+kinds ∷ Dict (Eq (If a b c) ~ If a (Eq b) (Eq c))
+kinds = withSimpl $(TH.spec 'proof₄) Dict

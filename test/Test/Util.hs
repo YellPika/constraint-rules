@@ -6,7 +6,6 @@ module Test.Util where
 
 import Control.Exception (Exception, throw)
 import Data.Constraint   (Dict (..))
-import Test.Hspec        (Selector)
 import Unsafe.Coerce     (unsafeCoerce)
 
 data BadProof = BadProof
@@ -15,7 +14,7 @@ data BadProof = BadProof
 badProof ∷ a
 badProof = throw BadProof
 
-exc ∷ ∀a. Exception a ⇒ Selector a
+exc ∷ ∀a. Exception a ⇒ a → Bool
 exc _ = True
 
 trustMe ∷ Dict (a ~ b)

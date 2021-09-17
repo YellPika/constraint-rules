@@ -34,7 +34,10 @@ findEqualities cts = let ?equalities = eqs in Dict where
     filter (isEqPrimPred . ctPred) $
       cts
 
-type EquivClass = NonEmpty (EquivInst, Coercion)
+data EquivClass = EquivClass
+  (NonEmpty (EquivInst, Coercion))
+  EquivClass
+-- type EquivClass = NonEmpty (EquivInst, Coercion)
 
 data EquivInst
   = EApp EquivClass EquivClass
@@ -45,7 +48,7 @@ repr ∷ EquivClass → Type
 repr = fst . head . flatten
 
 flatten ∷ EquivClass → NonEmpty (Type, Coercion)
-flatten t = do
+flatten (EquivClass t _) = do
   (t₀, coe₀) ← t
   (t₁, coe₁) ← flattenInst t₀
   return (t₁, mkTransCo coe₀ coe₁)
@@ -61,7 +64,7 @@ flattenInst (ETyCon c ts) = do
 flattenInst (EAtomic t) = (t, mkNomReflCo t) :| []
 
 containsCo ∷ Alternative f ⇒ EquivClass → Type → f Coercion
-containsCo ty' ty = asum (fmap go ty') where
+containsCo (EquivClass ty' _) ty = asum (fmap go ty') where
   go (EApp t' u', coe) | Just (t, u) ← splitAppTy_maybe ty = do
     coe₁ ← containsCo t' t
     coe₂ ← containsCo u' u
@@ -79,26 +82,26 @@ contains ∷ EquivClass → Type → Bool
 contains ty' ty = isJust (containsCo ty' ty)
 
 sing ∷ Type → EquivClass
-sing ty = (ty', mkNomReflCo ty) :| [] where
+sing ty = EquivClass ((ty', mkNomReflCo ty) :| []) (sing (typeKind ty)) where
   ty' | Just (t, u) ← splitAppTy_maybe ty = EApp (sing t) (sing u)
       | Just (c, ts) ← splitTyConApp_maybe ty = ETyCon c (map sing ts)
       | otherwise = EAtomic ty
 
 close ∷ Coercion → EquivClass → EquivClass → EquivClass → EquivClass
-close co lhs rhs = go where
+close co lhs@(EquivClass lhs' _) rhs@(EquivClass rhs' _) = go where
   go ∷ EquivClass → EquivClass
-  go c@(t :| ts) =
-    first goInst t :|
-    map (first goInst) (ts ++ lhs'' ++ rhs'')
+  go c@(EquivClass (t :| ts) k) = EquivClass
+      (first goInst t :| map (first goInst) (ts ++ lhs'' ++ rhs''))
+      (go k)
     where clhs = c `containsCo` repr lhs
           crhs = c `containsCo` repr rhs
           lhs'' | Just co' ← crhs
                 , Nothing  ← clhs
-                = map (fmap (mkTransCo (mkTransCo co' (mkSymCo co)))) (toList lhs)
+                = map (fmap (mkTransCo (mkTransCo co' (mkSymCo co)))) (toList lhs')
                 | otherwise = []
           rhs'' | Just co' ← clhs
                 , Nothing  ← crhs
-                = map (fmap (mkTransCo (mkTransCo co' co))) (toList rhs)
+                = map (fmap (mkTransCo (mkTransCo co' co))) (toList rhs')
                 | otherwise = []
 
   goInst ∷ EquivInst → EquivInst
@@ -113,15 +116,16 @@ equivClass = go ?equalities where
     close eq (go eqs lhs) (go eqs rhs) (go eqs t)
 
 match ∷ Type → EquivClass → StateT TCvSubst [] Coercion
-match template goal | Just x ← getTyVar_maybe template = do
+match template goal@(EquivClass _ goalKind) | Just x ← getTyVar_maybe template = do
   σ ← get
   case lookupTyVar σ x of
     Just t  → maybe empty return (goal `containsCo` t)
     Nothing → do
       let (t, coe) = head (flatten goal)
       put (extendTvSubstAndInScope σ x t)
+      _ ← match (varType x) goalKind
       return coe
-match template goal = asum (fmap go goal) where
+match template (EquivClass goal _) = asum (fmap go goal) where
   go (EApp t' u', coe) | Just (t, u) ← splitAppTy_maybe template = do
     coe₁ ← match t t'
     coe₂ ← match u u'

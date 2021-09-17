@@ -67,3 +67,7 @@ spec = do
   describe "multiple₂" do
     it "rewrites multiple constraints" do
       multiple₂ `shouldBe` ()
+
+  describe "kinds" do
+    it "fails unless kinds are matched properly" do
+      kinds `shouldBe` ()
