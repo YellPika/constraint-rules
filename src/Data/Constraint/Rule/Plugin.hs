@@ -121,10 +121,10 @@ instantiate σ (x:xs)
 children ∷ Type → [Type]
 children = \t → t : go t where
   go ∷ Type → [Type]
-  go (splitAppTy_maybe → Just (t, u))     = children t ++ children u
+  go (splitAppTy_maybe    → Just (t, u))  = children t ++ children u
   go (splitTyConApp_maybe → Just (_, ts)) = concatMap children ts
-  go (splitFunTy_maybe → Just (t, u))     = children t ++ children u
-  go (splitCastTy_maybe → Just (t, _))    = children t
+  go (splitFunTy_maybe    → Just (t, u))  = children t ++ children u
+  go (splitCastTy_maybe   → Just (t, _))  = children t
   go _                                    = []
 
 emitGivens ∷ CtLoc → [EvExpr] → [Ct] → TcPluginM TcPluginResult
