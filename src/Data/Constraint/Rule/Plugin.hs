@@ -1,10 +1,12 @@
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-{-# LANGUAGE BlockArguments  #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE ImplicitParams  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE UnicodeSyntax   #-}
-{-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE BlockArguments   #-}
+{-# LANGUAGE ConstraintKinds  #-}
+{-# LANGUAGE DataKinds        #-}
+{-# LANGUAGE ImplicitParams   #-}
+{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UnicodeSyntax    #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 module Data.Constraint.Rule.Plugin where
 
@@ -32,29 +34,28 @@ plugin = defaultPlugin
 
 solve ∷ (Dict Definitions, Dict Cache, Dict Messages) → [Ct] → [Ct] → [Ct] → TcPluginM TcPluginResult
 solve (Dict, Dict, Dict) givens deriveds wanteds = do
-  tcPluginTrace "[constraint-rules] Constraints" $
+  Dict ← return (findTraceKeys givens)
+
+  trace @"Constraints" $
     hang (text "Givens:")   4 (ppr givens) $$
     hang (text "Deriveds:") 4 (ppr deriveds) $$
     hang (text "Wanteds:")  4 (ppr wanteds)
 
-  loc ← getCtLocM (Shouldn'tHappenOrigin "constraint-rules") Nothing
-  tcPluginTrace "[constraint-rules] Location" (pprCtLoc loc)
-
   Dict ← return (findEqualities givens)
   let pprCo x = ppr x <+> text "∷" <+> ppr (coercionKind x)
-  tcPluginTrace "[constraint-rules] Equalities" (ppr (map pprCo ?equalities))
+  trace @"Equalities" (ppr (map pprCo ?equalities))
 
   (Dict, givens') ← findCached givens
-  tcPluginTrace "[constraint-rules] Cached" (ppr ?cached)
+  trace @"Cached" (ppr ?cached)
 
   (rules, givens'') ← findRules givens'
-  tcPluginTrace "[constraint-rules] Rules" (ppr rules)
+  trace @"Rules" (ppr rules)
 
   case applyRules givens'' (deriveds ++ wanteds) rules of
     []      → return (TcPluginOk [] [])
     apply:_ → apply
 
-applyRules ∷ (Definitions, Cached, Equalities) ⇒ [Ct] → [Ct] → [Rule] → [TcPluginM TcPluginResult]
+applyRules ∷ (Definitions, Cached, Equalities, Messages, TraceKeys) ⇒ [Ct] → [Ct] → [Rule] → [TcPluginM TcPluginResult]
 applyRules givens wanteds rules = do
   rule@Rule {..} ← rules
   apply ← applyRule givens wanteds rule
@@ -62,18 +63,19 @@ applyRules givens wanteds rules = do
     addUsedGREs (maybeToList ruleElt)
     apply
 
-applyRule ∷ (Definitions, Cached, Equalities) ⇒ [Ct] → [Ct] → Rule → [TcPluginM TcPluginResult]
+applyRule ∷ (Definitions, Cached, Equalities, Messages, TraceKeys) ⇒ [Ct] → [Ct] → Rule → [TcPluginM TcPluginResult]
 applyRule _ wanteds rule@Rule { ruleGoal = IntroGoal template, .. } = do
   ct       ← wanteds
   (coe, σ) ← runStateT (match template (equivClass (ctPred ct))) ruleArgs
   return do
-    tcPluginTrace "[constraint-rules] Applying" (ppr rule)
-    σ'' ← instantiate σ ruleVars
-    evs ← mapM (newWanted (bumpCtLocDepth (ctLoc ct)) . substTyAddInScope σ'') ruleCts
-    tcPluginTrace "[constraint-rules] New Wanteds" (ppr evs)
+    σ' ← instantiate σ ruleVars
+    evs ← mapM (newWanted (bumpCtLocDepth (ctLoc ct)) . substTyAddInScope σ') ruleCts
+    trace @"Intro" $
+      hang (text "Applying Intro") 4 (ppr rule) $$
+      text "with" <+> ppr σ'
 
     let ruleExpr = Var ruleDef
-          `mkTyApps` map (fromJust . lookupTyVar σ'') ruleVars
+          `mkTyApps` map (fromJust . lookupTyVar σ') ruleVars
           `mkApps`   map ctEvExpr evs
         DictTy [goal] = exprType ruleExpr
         openExpr = OpenDictExpr [Type goal, Type goal, ruleExpr]
@@ -89,7 +91,9 @@ applyRule givens wanteds rule@Rule { ruleGoal = DerivGoal _, .. } = do
       openExpr = OpenDictExpr [Type goal, Type goal, ruleExpr]
   guard (not (isCached goal))
   return do
-    tcPluginTrace "[constraint-rules] Applying" (ppr rule)
+    trace @"Deriv" $
+      hang (text "Applying Deriv") 4 (ppr rule) $$
+      text "with" <+> ppr σ
     cachedExpr ← cached goal
     emitGivens ruleLoc [openExpr, cachedExpr] wanteds
 applyRule givens wanteds rule@Rule { ruleGoal = SimplGoal lhs _, .. } = do
@@ -106,7 +110,9 @@ applyRule givens wanteds rule@Rule { ruleGoal = SimplGoal lhs _, .. } = do
       openExpr = OpenDictExpr [Type goal, Type goal, ruleExpr]
   guard (not (isCached goal))
   return do
-    tcPluginTrace "[constraint-rules] Applying" (ppr rule)
+    trace @"Simpl" $
+      hang (text "Applying Simpl") 4 (ppr rule) $$
+      text "with" <+> ppr σ'
     cachedExpr ← cached goal
     emitGivens ruleLoc [openExpr, cachedExpr] wanteds
 
@@ -127,7 +133,7 @@ children = \t → t : go t where
   go (splitCastTy_maybe   → Just (t, _))  = children t
   go _                                    = []
 
-emitGivens ∷ CtLoc → [EvExpr] → [Ct] → TcPluginM TcPluginResult
+emitGivens ∷ (Messages, TraceKeys) ⇒ CtLoc → [EvExpr] → [Ct] → TcPluginM TcPluginResult
 emitGivens loc givens [] = do
   evs ← mapM (\e → newGiven loc (exprType e) e) givens
   return (TcPluginOk [] (map mkNonCanonical evs))
@@ -148,12 +154,12 @@ emitGivens loc givens wanteds = do
             (DataAlt (classDataCon cls)) xs
             (Var x))
 
-  ev ← newWanted loc (mkInvisFunTys (map exprType givens) output)
-  tcPluginTrace "[constraint-rules] Adding" (ppr ev)
-
+  ev   ← newWanted loc (mkInvisFunTys (map exprType givens) output)
   vars ← mapM (\t → (`mkLocalId` t) <$> newName (mkVarOcc "x")) outputs
   let app = mkApps (ctEvExpr ev) givens
       evs = zipWith (\ct x → unmap (ctPred ct) (sel app vars x)) wanteds vars
-  tcPluginTrace "[constraint-rules] Replacing" (ppr (map (\e → ppr e <+> text "∷" <+> ppr (exprType e)) evs))
+  trace @"EmitGivens" $
+    hang (text "Adding")    4 (ppr ev) $$
+    hang (text "Replacing") 4 (ppr (map (\e → ppr e <+> text "∷" <+> ppr (exprType e)) evs))
 
   return (TcPluginOk (zip (map EvExpr evs) wanteds) [mkNonCanonical ev])

@@ -17,7 +17,7 @@ module Test.IntroDefs where
 
 import Data.Constraint         (Dict (..), HasDict (..))
 import Data.Constraint.Nat     (plusNat, timesNat)
-import Data.Constraint.Rule    -- (withIntro)
+import Data.Constraint.Rule    (withIntro)
 import Data.Constraint.Rule.TH (spec)
 import Data.Proxy              (Proxy (Proxy))
 import GHC.TypeNats            (KnownNat, natVal, type (*), type (+))

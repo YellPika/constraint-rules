@@ -1,15 +1,21 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE ImplicitParams  #-}
-{-# LANGUAGE UnicodeSyntax   #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE ImplicitParams      #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE UnicodeSyntax       #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 module Data.Constraint.Rule.Plugin.Message where
 
+import Data.Constraint.Rule.Plugin.Definitions
 import Data.Constraint.Rule.Plugin.Prelude
+import Data.Constraint.Rule.Trace
 
 import Data.Bifunctor  (first, second)
 import Data.Constraint (Dict (..))
 import Data.IORef      (IORef, modifyIORef', newIORef, readIORef)
+import Data.Proxy      (Proxy (..))
+import GHC.TypeLits    (KnownSymbol, symbolVal)
 
 type Messages = ?messages ∷ IORef ([(SrcSpan, SDoc)], [(SrcSpan, SDoc)])
 
@@ -52,3 +58,17 @@ reportMessages = do
   (errs, warns) ← tcPluginIO (readIORef ?messages)
   mapM_ (uncurry addErrAt) (undup errs)
   mapM_ (uncurry (addWarnAt NoReason)) (undup warns)
+
+type TraceKeys = (?traceKeys ∷ [FastString])
+
+findTraceKeys ∷ Definitions ⇒ [Ct] → Dict TraceKeys
+findTraceKeys cts = let ?traceKeys = go cts in Dict where
+  go []                                       = []
+  go ((ctPred → TraceTy [StrLitTy key]) : xs) = key : go xs
+  go (_ : xs)                                 = go xs
+
+trace ∷ ∀key. (KnownSymbol key, TraceKey key, Messages, TraceKeys) ⇒ SDoc → TcPluginM ()
+trace doc
+  | key `elem` ?traceKeys = addWarningMessage doc
+  | otherwise             = return ()
+  where key = fsLit (symbolVal (Proxy @key))

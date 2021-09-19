@@ -1,7 +1,9 @@
 {-# LANGUAGE BlockArguments    #-}
+{-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE UnicodeSyntax     #-}
 {-# LANGUAGE ViewPatterns      #-}
 
@@ -13,7 +15,7 @@ import Data.Constraint.Rule
 import Data.Constraint.Rule.Plugin.Definitions
 import Data.Constraint.Rule.Plugin.Equiv
 import Data.Constraint.Rule.Plugin.Message
-import Data.Constraint.Rule.Plugin.Prelude hiding (empty)
+import Data.Constraint.Rule.Plugin.Prelude     hiding (empty)
 
 import Control.Applicative       (empty)
 import Control.Monad.Trans.Class (lift)
@@ -60,7 +62,7 @@ ruleGoalKind (IntroGoal _)   = Intro
 ruleGoalKind (DerivGoal _)   = Deriv
 ruleGoalKind (SimplGoal _ _) = Simpl
 
-findRules ∷ (Definitions, Equalities, Messages) ⇒ [Ct] → TcPluginM ([Rule], [Ct])
+findRules ∷ (Definitions, Equalities, Messages, TraceKeys) ⇒ [Ct] → TcPluginM ([Rule], [Ct])
 findRules givens = do
   ignored               ← findIgnored givens
   (specifieds, givens') ← findSpecifiedRules givens
@@ -81,7 +83,7 @@ findIgnored = mapMaybeM (go . ctPred) where
     return Nothing
   go _ = return Nothing
 
-findSpecifiedRules ∷ (Definitions, Equalities, Messages) ⇒ [Ct] → TcPluginM ([Rule], [Ct])
+findSpecifiedRules ∷ (Definitions, Equalities, Messages, TraceKeys) ⇒ [Ct] → TcPluginM ([Rule], [Ct])
 findSpecifiedRules = loop where
   loop [] = return ([], [])
   loop (ct:cts) = do
@@ -105,7 +107,7 @@ findSpecifiedRules = loop where
     return Nothing
   go _ = return Nothing
 
-findDefaultRules ∷ (Definitions, Messages) ⇒ TcPluginM [Rule]
+findDefaultRules ∷ (Definitions, Messages, TraceKeys) ⇒ TcPluginM [Rule]
 findDefaultRules = do
   topEnv ← getTopEnv
   annEnv ← tcPluginIO (prepareAnnotations topEnv Nothing)
@@ -117,12 +119,12 @@ findDefaultRules = do
   let elts   = filter (not . isLocalGRE) (concat (occEnvElts (tcg_rdr_env gblEnv)))
       named  = map (\elt → (elt, grePrintableName elt)) elts
       annotd = concatMap (\(elt, name) → (,,) elt name <$> getAnns name) named
-  tcPluginTrace "[constraint-rules] Annotations" (ppr annotd)
+  trace @"Annotations" (ppr annotd)
 
   locd ← mapM (\(elt, name, kind) → (,,,) elt name kind <$> getCtLocM (OccurrenceOf name) Nothing) annotd
   mapMaybeM (\(elt, name, kind, loc) → makeRule (Just elt) loc kind name) locd
 
-makeRule ∷ (Definitions, Messages) ⇒ Maybe GlobalRdrElt → CtLoc → RuleUsage → Name → TcPluginM (Maybe Rule)
+makeRule ∷ (Definitions, Messages, TraceKeys) ⇒ Maybe GlobalRdrElt → CtLoc → RuleUsage → Name → TcPluginM (Maybe Rule)
 makeRule ruleElt ruleLoc kind name = runMaybeT do
   ruleDef ← MaybeT (lookupVar name)
   MaybeT . setSrcSpan (toSrcSpan (ctLocSpan ruleLoc)) . runMaybeT $ do
@@ -164,7 +166,7 @@ checkArgs σ t (var:vars) (arg:args) =
       hang "has type" 4 (ppr (typeKind arg))
     empty
 
-lookupVar ∷ Name → TcPluginM (Maybe Var)
+lookupVar ∷ (Messages, TraceKeys) ⇒ Name → TcPluginM (Maybe Var)
 lookupVar name = do
   local ← unsafeTcPluginTcM (tcLookupLcl_maybe name)
   case local of
@@ -174,7 +176,7 @@ lookupVar name = do
       case global of
         Succeeded (AnId x) → return (Just x)
         _ → do
-          tcPluginTrace "[constraint-rules]" ("Could not lookup variable" <+> ppr name)
+          trace @"Lookup" ("Could not lookup variable" <+> ppr name)
           return Nothing
 
 lookupName ∷ Messages ⇒ FastString → FastString → TcPluginM (Maybe Name)

@@ -19,6 +19,7 @@ module Data.Constraint.Rule.Plugin.Definitions (
   pattern CachedTy,
   pattern CachedExpr,
   pattern OpenDictExpr,
+  pattern TraceTy,
   pattern EqPrimTy,
   pattern EqTy,
   pattern HEqTy,
@@ -30,6 +31,7 @@ module Data.Constraint.Rule.Plugin.Definitions (
 import Data.Constraint.Rule
 import Data.Constraint.Rule.Plugin.Prelude
 import Data.Constraint.Rule.Plugin.Runtime
+import Data.Constraint.Rule.Trace
 
 import Data.Constraint    (Dict (..))
 import GHC.Definitions.TH (makeDefinitions, makePattern)
@@ -47,6 +49,7 @@ makeDefinitions
   , ''Cached
   , 'cached
   , 'unsafeOpenDict
+  , ''Trace
   ]
 
 makePattern "DictTy"       'dictTyCon
@@ -61,6 +64,7 @@ makePattern "RuleSpecTy"   'promotedRuleSpecTyCon
 makePattern "CachedTy"     'cachedClass
 makePattern "CachedExpr"   'cachedVar
 makePattern "OpenDictExpr" 'unsafeOpenDictVar
+makePattern "TraceTy"      'traceClass
 
 makePattern "EqPrimTy" 'eqPrimTyCon
 makePattern "HEqTy"    'heqTyCon
